@@ -3,21 +3,34 @@
 #include <Wire.h>
 
 // Firmware version
-#define VERSION_MAJOR                   0
-#define VERSION_MINOR                   1
+#define VERSION_MAJOR                  0
+#define VERSION_MINOR                  1
 
 // General define
-#define TRUE    1
-#define FALSE   0
+#define TRUE                           1
+#define FALSE                          0
 
 // I2C general
 #define SLAVE_ADDRESS                  0x05
 
-#define LED_PIN   4
-#define SEND_PIN  1
-#define RECV_PIN  3
+#if defined(__AVR_ATtiny85__)
+  #define LED1_PIN                       4
+  #define LED2_PIN                       4
+  #define BTN_PIN                        0  // not supported
+  #define SEND_PIN                       1
+  #define RECV_PIN                       3
+#elif defined(__AVR_ATtiny1634__)
+  #define LED1_PIN                       PIN_C0
+  #define LED2_PIN                       PIN_C4
+  #define BTN_PIN                        PIN_C2
+  #define SEND_PIN                       PIN_B2
+  #define RECV_PIN                       PIN_A0
+#else
+  #error Only Attiny85 and Attiny1634 are supported
+#endif
+
 IRsend irsend;
-IRrecv irrecv(RECV_PIN);
+IRrecv irrecv(RECV_PIN, LED2_PIN);
 decode_results results;
 
 // I2C read commmands
@@ -43,7 +56,8 @@ decode_results results;
 #define CMD_SEND                       0x91
 #define CMD_SEND_RAW                   0x92
 #define CMD_STORE_RAW                  0x93
-#define CMD_ACTION_COMMAND_LAST        0x93
+#define CMD_STOP_STORE_RAW             0x94
+#define CMD_ACTION_COMMAND_LAST        0x94
 
 // I2C buffer write commmands
 #define CMD_BUFWRITE_COMMAND_FIRST     0xA0
@@ -82,6 +96,7 @@ struct action_t
   uint8_t  doSend;
   uint8_t  doSendRaw;
   uint8_t  doStoreRaw;
+  uint8_t  doStopStoreRaw;
 };
 
 input_t  inputData = {0, 0, 0};
@@ -105,12 +120,16 @@ void setup()
   Wire.onReceive(receiveEvent);
   Wire.onRequest(requestEvent);
 
-  pinMode(LED_PIN, OUTPUT);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
   pinMode(SEND_PIN, OUTPUT);
   
-  digitalWrite(LED_PIN, HIGH); // sets the LED on
-  delay(1000);                // waits for a second
-  digitalWrite(LED_PIN, LOW);  // sets the LED off
+  digitalWrite(LED1_PIN, HIGH);
+  delay(1000);;
+  digitalWrite(LED1_PIN, LOW);
+  digitalWrite(LED2_PIN, HIGH);
+  delay(1000);;
+  digitalWrite(LED2_PIN, LOW);
   delay(1000);
 
   irrecv.enableIRIn();
@@ -128,19 +147,34 @@ void loop() {
   else if (actionData.doSend == TRUE)
   {
     sendCode();
+    digitalWrite(LED1_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED1_PIN, LOW);
+    delay(100);
+    digitalWrite(LED1_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED1_PIN, LOW);
     actionData.doSend = FALSE;
   }
   else if (actionData.doSendRaw == TRUE)
   {
     irsend.sendRaw(outputData.rawCodes, outputData.rawCodeLen, outputData.kHz);
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED1_PIN, HIGH);
     delay(200);
-    digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED1_PIN, LOW);
     delay(200);
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED1_PIN, HIGH);
     delay(200);
-    digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED1_PIN, LOW);
     actionData.doSendRaw = FALSE;
+  }
+  else if (actionData.doStopStoreRaw == TRUE)
+  {
+    actionData.doStoreRaw = FALSE;
+    actionData.doStopStoreRaw = FALSE;
+    digitalWrite(LED1_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED1_PIN, LOW);
   }
 
   if (irrecv.decode(&results))
@@ -154,9 +188,9 @@ void loop() {
       actionData.doStoreRaw = FALSE;
     }
 
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED1_PIN, HIGH);
     delay(500);
-    digitalWrite(LED_PIN, LOW);
+    digitalWrite(LED1_PIN, LOW);
 
     irrecv.resume();
   }
@@ -248,14 +282,6 @@ void sendCode()
   else if (inputData.codeType == SAMSUNG)
   {
     irsend.sendSAMSUNG(inputData.codeValue, inputData.codeLen);
-     
-    digitalWrite(LED_PIN, HIGH);
-    delay(100);
-    digitalWrite(LED_PIN, LOW);
-    delay(100);
-    digitalWrite(LED_PIN, HIGH);
-    delay(100);
-    digitalWrite(LED_PIN, LOW);
   } 
   /*
   else if (inputData.codeType == PANASONIC)
@@ -267,5 +293,4 @@ void sendCode()
   {
     irsend.sendLG(inputData.codeValue, inputData.codeLen);
   } 
-
 }
