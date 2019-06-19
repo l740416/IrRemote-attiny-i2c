@@ -4,7 +4,7 @@
 - Attiny85/1634 uses Arduino [TinyCore](https://github.com/SpenceKonde/ATTinyCore)
 - IrRemote library uses [this](https://github.com/l740416/Arduino-IRremote)
 - The default I2C address: 0x05
-- Due to program space in Attiny85 (8KB), you will need to disable to supported IR protocols
+- Due to program space in Attiny85 (8KB), you will need to disable some supported IR protocols in IrRemote library
 
 ### Pins connection
 
